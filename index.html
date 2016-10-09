@@ -6,5 +6,31 @@
 <div id=operations></div>
 <div id=boxes></div>
 <textarea id=code></textarea><br>
-<input type=submit value=apply onclick='draw.load();'>
+<input type=submit value=Apply onclick='draw.load();'>
+<div id=instructions>
+<h1>Instructions</h1>
+
+<p>This is a tool to draw by iteration, selecting from randomly generated
+variations of a given image.</p>
+
+<p>Click a link at the top (e.g. "add") to generate variations of the image;
+these are shown in smaller canvas. If you see a variation that you like, click
+to make it the new image. New variations will then be displayed (according to
+the last tool that you used (you can use "back" to undo your last
+selection).</p>
+
+<p>Mouse over the tools to see more information about their behavior.</p>
+
+<p>Reload the file to discard your current state and start again from scratch.
+The textarea with code represents your current image. You can copy that into
+a file to save the state. If you paste it back and click "Apply", you can
+restore the state.</p>
+
+<p>There's some sample images in the
+<a href="http://github.com/alefore/draw">GitHub repository</a>
+(directory samples/, feel free to send me more)</p>
+
+<hr>
+Alejandro Forero Cuervo &lt;alefore@gmail.com>
+</div>
 </body></html>

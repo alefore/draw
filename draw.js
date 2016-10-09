@@ -10,6 +10,8 @@ var draw = {
     this.createCanvas(500, this.image, function() {});
 
     var operations = document.getElementById('operations');
+    operations.appendChild(document.createTextNode('Tools: '));
+
     var draw = this;
     this.operations.forEach(
       function (o) { draw.addOperation(draw, o); });
