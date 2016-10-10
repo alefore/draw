@@ -7,7 +7,7 @@ var draw = {
 
   start: function () {
     this.image = this.collection([], 0, 1, [0, 0], 1, 0);
-    this.createCanvas(500, this.image, function() {});
+    this.createDefaultCanvas();
 
     var container = $('<p>Tools: </p>');
     $('#operations').append(container);
@@ -27,7 +27,7 @@ var draw = {
           if (this_capture.history.length == 0) { return; }
           this_capture.image = this_capture.history.pop();
           $('canvas').remove();
-          this_capture.createCanvas(500, this_capture.image, function() {});
+          this_capture.createDefaultCanvas();
         });
 
     container.append(link);
@@ -80,18 +80,12 @@ var draw = {
     }
 
     $('canvas').remove();
-    draw.createCanvas(500, draw.image,
-        function() { draw.runOperation(draw, link, settings, operation); });
+    draw.createDefaultCanvas();
 
     for (var i = 0; i < draw.count; i++) {
-      (function (image) {
-         operation.handler(draw, image);
-         var canvas = draw.createCanvas(200, image,
-            function() {
-              draw.updateImage(image);
-              draw.runOperation(draw, link, settings, operation);
-            });
-       })(this.image.clone());
+      var image = this.image.clone();
+      operation.handler(draw, image);
+      draw.createCanvas(200, image);
     }
   },
 
@@ -197,13 +191,20 @@ var draw = {
         handler: function(draw, image) { image.group(); } },
   ],
 
-  createCanvas: function(size, image, clickHandler) {
+  createCanvas: function(size, image) {
     console.log('Creating canvas of size: ' + size);
     var canvas = document.createElement('canvas');
     canvas.setAttribute('class', 'canvas');
     canvas.setAttribute('width', size);
     canvas.setAttribute('height', size);
-    canvas.addEventListener('click', clickHandler);
+
+    var this_capture = this;
+    canvas.addEventListener('click',
+        function() {
+          this_capture.updateImage(image);
+          $('a.operation.active').click();
+        });
+
     this.drawCanvas(canvas.getContext("2d"), image);
     document.getElementById('boxes').appendChild(canvas);
   },
@@ -383,6 +384,7 @@ var draw = {
   },
 
   updateImage: function(image) {
+    if (image == this.image) { return; }
     this.history.push(this.image);
     this.image = image;
     var parts = [];
@@ -390,9 +392,13 @@ var draw = {
     $('#code').val(parts.join(''));
   },
 
+  createDefaultCanvas: function() {
+    this.createCanvas(500, this.image);
+  },
+
   load: function() {
     this.updateImage(eval($('#code').val()));
     $('canvas').remove();
-    this.createCanvas(500, this.image, function() {});
+    this.createDefaultCanvas();
   },
 };
