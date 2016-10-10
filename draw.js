@@ -9,12 +9,12 @@ var draw = {
     this.image = this.collection([], 0, 1, [0, 0], 1, 0);
     this.createCanvas(500, this.image, function() {});
 
-    var operations = document.getElementById('operations');
-    operations.appendChild(document.createTextNode('Tools: '));
+    var operations = $('#operations');
+    operations.append(document.createTextNode('Tools: '));
 
     var draw = this;
     this.operations.forEach(
-      function (o) { draw.addOperation(draw, o); });
+      function (o) { draw.addOperation(draw, operations, o); });
 
     var link = document.createElement('a');
     link.appendChild(document.createTextNode('back'));
@@ -30,8 +30,8 @@ var draw = {
           this_capture.createCanvas(500, this_capture.image, function() {});
         });
 
-    operations.appendChild(link);
-    operations.appendChild(document.createTextNode(' '));
+    operations.append(link);
+    operations.append(document.createTextNode(' '));
   },
 
   randomSeed: 1,
@@ -40,28 +40,25 @@ var draw = {
     return x - Math.floor(x);
   },
 
-  addOperation: function(draw, operation) {
+  addOperation: function(draw, container, operation) {
     console.log('Adding operation: ' + operation.text);
-    var link = document.createElement('a');
-    link.appendChild(document.createTextNode(operation.text));
-    link.setAttribute('href', '#');
-    link.setAttribute('title', operation.description);
+    var link = $('<a>')
+        .append(document.createTextNode(operation.text))
+        .attr('href', '#')
+        .attr('title', operation.description)
+        .attr('class', 'operations')
+        .on('click', function () { draw.runOperation(draw, link, operation); });
 
-    link.addEventListener(
-        'click',
-        function () {
-          draw.runOperation(draw, operation);
-        });
-
-    operations.appendChild(link);
-    operations.appendChild(document.createTextNode(' '));
+    container.append(link).append(' ');
   },
 
-  runOperation: function(draw, operation) {
+  runOperation: function(draw, link, operation) {
     console.log('Running operation: ' + operation.text);
+    $('a.operations').css('font-weight', 'normal');
+    link.css('font-weight', 'bold');
     $('canvas').remove();
     draw.createCanvas(500, draw.image,
-        function() { draw.runOperation(draw, operation); });
+        function() { draw.runOperation(draw, link, operation); });
 
     for (var i = 0; i < draw.count; i++) {
       (function (image) {
@@ -69,7 +66,7 @@ var draw = {
          var canvas = draw.createCanvas(200, image,
             function() {
               draw.updateImage(image);
-              draw.runOperation(draw, operation);
+              draw.runOperation(draw, link, operation);
             });
        })(this.image.clone());
     }
