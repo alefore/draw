@@ -31,6 +31,7 @@ var draw = {
         });
 
     container.append(link);
+    $('a.operation').first().click();
   },
 
   randomSeed: 1,
