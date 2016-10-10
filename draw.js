@@ -193,20 +193,26 @@ var draw = {
 
   createCanvas: function(size, image) {
     console.log('Creating canvas of size: ' + size);
-    var canvas = document.createElement('canvas');
-    canvas.setAttribute('class', 'canvas');
-    canvas.setAttribute('width', size);
-    canvas.setAttribute('height', size);
-
     var this_capture = this;
-    canvas.addEventListener('click',
-        function() {
-          this_capture.updateImage(image);
-          $('a.operation.active').click();
-        });
+    var canvas = $('<canvas>')
+        .attr('width', size)
+        .attr('height', size)
+        .click(
+            function() {
+              this_capture.updateImage(image);
+              $('a.operation.active').click();
+            })
+        .mouseover(
+            function() {
+              this_capture.drawCanvas($('canvas').get(0), image);
+            })
+        .mouseout(
+            function() {
+              this_capture.drawCanvas($('canvas').get(0), this_capture.image);
+            });
 
-    this.drawCanvas(canvas.getContext("2d"), image);
-    document.getElementById('boxes').appendChild(canvas);
+    this.drawCanvas(canvas.get(0), image);
+    $('#boxes').append(canvas);
   },
 
   randomBezier: function() {
@@ -373,6 +379,7 @@ var draw = {
   },
 
   drawCanvas: function(canvas, image) {
+    canvas = canvas.getContext('2d');
     canvas.fillStyle = "#000000";
     canvas.fillRect(0, 0, canvas.canvas.width, canvas.canvas.height);
 
