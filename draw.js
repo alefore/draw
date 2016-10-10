@@ -47,7 +47,7 @@ var draw = {
       settings = $('<div>')
           .attr('class', 'operationSettings')
           .hide();
-      operation.settings(settings);
+      operation.settings(draw, settings);
       $('#operations').append(settings);
     }
 
@@ -92,6 +92,38 @@ var draw = {
     }
   },
 
+  createSetting: function(container, data, element) {
+    var span = $('<span>')
+        .attr('class', 'setting');
+    if (data.name != null) {
+      span.append(data.name + ': ');
+    }
+    span.append(element);
+    if (data.description != null) {
+      span.attr('title', data.description);
+    }
+    container.append(span);
+  },
+
+  settings: {
+    number: function(draw, container, data) {
+      var element = $('<input type=number>').attr('id', data.id);
+      if (data.initialValue != null) {
+        element.val(data.initialValue);
+      }
+      draw.createSetting(container, data, element);
+    },
+
+    selector: function(draw, container, data) {
+      var element = $('<select>').attr('id', data.id);
+      data.options.forEach(
+          function(o) {
+            element.append($('<option>').attr('value', o.id).append(o.text));
+          });
+      draw.createSetting(container, data, element);
+    }
+  },
+
   operations: [
       { text: 'add',
         description: 'Adds a new segment.',
@@ -109,8 +141,29 @@ var draw = {
           image.active();
         } },
       { text: 'tweak',
-        description: 'Applies small modifications to all points in the figure.',
-        settings: function (container) {},
+        description:
+            'Moves points in the active segment by a random distance.'
+            + ' This includes both visible points as well as the control '
+            + ' points of the bezier.',
+        settings: function (draw, container) {
+          var form = $('<form>');
+          draw.settings.number(
+              draw,
+              form,
+              { name: 'Distance X', id: 'tweakDistanceX', initialValue: 0.1 });
+          draw.settings.number(
+              draw,
+              form,
+              { name: 'Distance Y', id: 'tweakDistanceY', initialValue: 0.1 });
+          draw.settings.selector(
+              draw,
+              form,
+              { id: 'tweakPoints',
+                options: [
+                  { id: 'one', text: 'Only one point' },
+                  { id: 'all', text: 'All points' }]});
+          container.append(form);
+        },
         handler: function(draw, image) { image.tweak(); } },
       { text: 'mutate',
         description: 'Changes one randomly selected point in the figure.',
@@ -160,14 +213,29 @@ var draw = {
       },
       active: function() {},
       tweak: function() {
-        var variation = 0.2;
-        for (var i = 0; i < points.length; i++) {
+        var pointsIndices = [];
+        if ($('#tweakPoints').val() == 'all') {
+          for (var i = 0; i < points.length / 2; i++) {
+            pointsIndices.push(i);
+          }
+        } else {
+          pointsIndices.push(Math.floor(draw.random() * points.length / 2));
+        }
+
+        var randomizePoint = function(index, variation) {
           var factor = 1.0 - variation + 2 * variation * draw.random();
-          points[i] = Math.max(0, Math.min(draw.size, points[i] * factor));
+          points[index] =
+              Math.max(0, Math.min(draw.size, points[index] * factor));
+        }
+        var variationX = Number($('#tweakDistanceX').val());
+        var variationY = Number($('#tweakDistanceY').val());
+        for (var i = 0; i < pointsIndices.length; i++) {
+          randomizePoint(pointsIndices[i] * 2, variationX);
+          randomizePoint(pointsIndices[i] * 2 + 1, variationY);
         }
       },
       mutate: function() {
-        var point = Math.floor(draw.random() * points.length / 2)
+        var point =
         points[point * 2] = draw.random() * draw.size;
         points[point * 2 + 1] = draw.random() * draw.size;
       },
@@ -238,13 +306,9 @@ var draw = {
         activeBox[0] = 0;
       },
       tweak: function() {
-        var choice = draw.random();
-        if (choice < 0.3) {
-          translateBox[0][0] += draw.size * (-0.2 + draw.random() * 0.4);
-          translateBox[0][1] += draw.size * (-0.2 + draw.random() * 0.4);
-        } else {
-          shapes[activeBox[0]].tweak();
-        }
+        shapes[activeBox[0]].tweak();
+        // translateBox[0][0] += draw.size * (-0.2 + draw.random() * 0.4);
+        // translateBox[0][1] += draw.size * (-0.2 + draw.random() * 0.4);
       },
       mutate: function() { shapes[activeBox[0]].mutate(); },
       effect: function() {
