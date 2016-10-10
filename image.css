@@ -1,7 +1,37 @@
 .canvas {
   margin: 10px;
 }
+
 textarea#code {
   width: 90%;
   height: 25em;
+}
+
+p {
+  font: normal verdana,arial,helvetica,sans-serif;
+}
+
+a.operation {
+  background: #4E9CAF;
+  color: white;
+
+  text-decoration: none;
+  text-align: center;
+  font-weight: bold;
+
+  display: inline-block;
+  border-radius: 5px;
+
+  width: 5em;
+
+  padding: 0.5em;
+  margin: 2px;
+}
+
+a.operation.active {
+  background: orange;
+}
+
+#operations {
+  text-align: center;
 }

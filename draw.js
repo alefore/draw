@@ -9,12 +9,12 @@ var draw = {
     this.image = this.collection([], 0, 1, [0, 0], 1, 0);
     this.createCanvas(500, this.image, function() {});
 
-    var operations = $('#operations');
-    operations.append(document.createTextNode('Tools: '));
+    var container = $('<p>Tools: </p>');
+    $('#operations').append(container);
 
     var draw = this;
     this.operations.forEach(
-      function (o) { draw.addOperation(draw, operations, o); });
+      function (o) { draw.addOperation(draw, container, o); });
 
     var link = document.createElement('a');
     link.appendChild(document.createTextNode('back'));
@@ -30,8 +30,7 @@ var draw = {
           this_capture.createCanvas(500, this_capture.image, function() {});
         });
 
-    operations.append(link);
-    operations.append(document.createTextNode(' '));
+    container.append(link);
   },
 
   randomSeed: 1,
@@ -42,23 +41,44 @@ var draw = {
 
   addOperation: function(draw, container, operation) {
     console.log('Adding operation: ' + operation.text);
+    var settings = null;
+
+    if (operation.settings != null) {
+      settings = $('<div>')
+          .attr('class', 'operationSettings')
+          .hide();
+      operation.settings(settings);
+      $('#operations').append(settings);
+    }
+
     var link = $('<a>')
         .append(document.createTextNode(operation.text))
         .attr('href', '#')
         .attr('title', operation.description)
-        .attr('class', 'operations')
-        .on('click', function () { draw.runOperation(draw, link, operation); });
+        .attr('class', 'operation')
+        .on('click',
+            function () {
+              draw.runOperation(draw, link, settings, operation);
+            });
 
     container.append(link).append(' ');
+
   },
 
-  runOperation: function(draw, link, operation) {
+  runOperation: function(draw, link, settings, operation) {
     console.log('Running operation: ' + operation.text);
-    $('a.operations').css('font-weight', 'normal');
-    link.css('font-weight', 'bold');
+
+    $('a.operation').toggleClass('active', false);
+    link.toggleClass('active');
+
+    $('div.operationSettings').hide();
+    if (settings != null) {
+      settings.show();
+    }
+
     $('canvas').remove();
     draw.createCanvas(500, draw.image,
-        function() { draw.runOperation(draw, link, operation); });
+        function() { draw.runOperation(draw, link, settings, operation); });
 
     for (var i = 0; i < draw.count; i++) {
       (function (image) {
@@ -66,7 +86,7 @@ var draw = {
          var canvas = draw.createCanvas(200, image,
             function() {
               draw.updateImage(image);
-              draw.runOperation(draw, link, operation);
+              draw.runOperation(draw, link, settings, operation);
             });
        })(this.image.clone());
     }
@@ -90,6 +110,7 @@ var draw = {
         } },
       { text: 'tweak',
         description: 'Applies small modifications to all points in the figure.',
+        settings: function (container) {},
         handler: function(draw, image) { image.tweak(); } },
       { text: 'mutate',
         description: 'Changes one randomly selected point in the figure.',
