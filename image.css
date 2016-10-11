@@ -35,3 +35,7 @@ a.operation.active {
 #operations {
   text-align: center;
 }
+
+span.setting {
+  margin: 1em;
+}
