@@ -159,6 +159,14 @@ var draw = {
           draw.settings.selector(
               draw,
               form,
+              { id: 'tweakSelectPoints',
+                options: [
+                  { id: 'all', text: 'All' },
+                  { id: 'control', text: 'Control' },
+                  { id: 'path', text: 'Path' }]});
+          draw.settings.selector(
+              draw,
+              form,
               { id: 'tweakPoints',
                 options: [
                   { id: 'one', text: 'Only one point' },
@@ -239,12 +247,26 @@ var draw = {
       active: function() {},
       tweak: function() {
         var pointsIndices = [];
-        if ($('#tweakPoints').val() == 'all') {
-          for (var i = 0; i < points.length / 2; i++) {
-            pointsIndices.push(i);
+
+        if ($('#tweakSelectPoints').val() != 'control') {
+          console.log('Adding path points');
+          pointsIndices.push(0);
+          for (var i = 1; i < points.length / 2; i += 3) {
+            pointsIndices.push(i + 2);
           }
-        } else {
-          pointsIndices.push(Math.floor(draw.random() * points.length / 2));
+        }
+
+        if ($('#tweakSelectPoints').val() != 'path') {
+          console.log('Adding control points');
+          for (var i = 1; i < points.length / 2; i += 3) {
+            pointsIndices.push(i);
+            pointsIndices.push(i + 1);
+          }
+        }
+
+        if ($('#tweakPoints').val() != 'all') {
+          pointsIndices =
+              [pointsIndices[Math.floor(draw.random() * pointsIndices.length)]];
         }
 
         var randomizePoint = function(index, variation) {
@@ -254,6 +276,7 @@ var draw = {
         }
         var variationX = Number($('#tweakDistanceX').val());
         var variationY = Number($('#tweakDistanceY').val());
+        console.log('Options: ' + pointsIndices.length)
         for (var i = 0; i < pointsIndices.length; i++) {
           randomizePoint(pointsIndices[i] * 2, variationX);
           randomizePoint(pointsIndices[i] * 2 + 1, variationY);
