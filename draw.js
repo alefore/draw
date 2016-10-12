@@ -53,13 +53,16 @@ var draw = {
     console.log('Adding operation: ' + operation.text);
     var settings = null;
 
-    if (operation.settings != null) {
+    if (operation.settings != null && operation.settings.length > 0) {
       settings = $('<div>')
           .attr('class', 'operationSettings')
           .hide();
       var form = $('<form>');
       settings.append(form);
-      operation.settings(draw, form);
+      operation.settings.forEach(
+          function (setting) {
+            draw.settingsHtml[setting.type](draw, form, setting);
+          });
       $('#operations').append(settings);
     }
 
@@ -100,7 +103,7 @@ var draw = {
     container.append(span);
   },
 
-  settings: {
+  settingsHtml: {
     number: function(draw, container, data) {
       var element = $('<input type=number>').attr('id', data.id);
       if (data.step != null) {
@@ -116,10 +119,12 @@ var draw = {
       var element = $('<select>').attr('id', data.id);
       data.options.forEach(
           function(o) {
-            element.append($('<option>').attr('value', o.id).append(o.text));
+            element.append($('<option>')
+                .attr('value', o.id)
+                .append(o.text));
           });
       draw.createSetting(container, data, element);
-    }
+    },
   },
 
   operations: [
@@ -143,48 +148,52 @@ var draw = {
             'Moves points in the active segment by a random distance.'
             + ' This includes both visible points as well as the control '
             + ' points of the bezier.',
-        settings: function (draw, form) {
-          draw.settings.number(
-              draw,
-              form,
-              { name: 'Distance X', id: 'tweakDistanceX', initialValue: 0.1,
-                step: 0.02, });
-          draw.settings.number(
-              draw,
-              form,
-              { name: 'Distance Y', id: 'tweakDistanceY', initialValue: 0.1,
-                step: 0.02, });
-          draw.settings.selector(
-              draw,
-              form,
-              { id: 'tweakSelectPoints',
-                options: [
+        settings: [
+            { type: 'number',
+              name: 'Distance X',
+              id: 'tweakDistanceX',
+              initialValue: 0.1,
+              step: 0.02 },
+            { type: 'number',
+              name: 'Distance Y',
+              id: 'tweakDistanceY',
+              initialValue: 0.1,
+              step: 0.02 },
+            { type: 'selector',
+              id: 'tweakSelectPoints',
+              options: [
                   { id: 'all', text: 'All' },
                   { id: 'control', text: 'Control' },
-                  { id: 'path', text: 'Path' }]});
-          draw.settings.selector(
-              draw,
-              form,
-              { id: 'tweakPoints',
-                options: [
+                  { id: 'path', text: 'Path' }]},
+            { type: 'selector',
+              id: 'tweakPoints',
+              options: [
                   { id: 'one', text: 'Only one point' },
-                  { id: 'all', text: 'All points' }]});
-        },
+                  { id: 'all', text: 'All points' }]}],
         handler: function(draw, image) { image.tweak(); } },
       { text: 'move',
         description: '',
-        settings: function (draw, form) {
-          draw.settings.number(
-              draw,
-              form,
-              { name: 'Distance X', id: 'moveTranslateDistanceX',
-                initialValue: 0.1, step: 0.02, });
-          draw.settings.number(
-              draw,
-              form,
-              { name: 'Distance Y', id: 'moveTranslateDistanceY',
-                initialValue: 0.1, step: 0.02, });
-        },
+        settings: [
+            { type: 'number',
+              name: 'Distance X',
+              id: 'moveTranslateDistanceX',
+              initialValue: 0.1,
+              step: 0.02 },
+            { type: 'number',
+              name: 'Distance Y',
+              id: 'moveTranslateDistanceY',
+              initialValue: 0.1,
+              step: 0.02 },
+            { type: 'number',
+              name: 'Scale',
+              id: 'moveScale',
+              initialValue: 0.1,
+              step: 0.02 },
+            { type: 'number',
+              name: 'Angle',
+              id: 'moveAngle',
+              initialValue: 0.1,
+              step: 0.02 }],
         handler: function(draw, image) { image.move(); } },
       { text: 'effect',
         description: '',
@@ -269,8 +278,7 @@ var draw = {
 
         var randomizePoint = function(index, variation) {
           var delta = draw.size * (-variation + 2 * variation * draw.random());
-          points[index] =
-              Math.max(0, Math.min(draw.size, points[index] + delta));
+          points[index] += delta;
         }
         var variationX = Number($('#tweakDistanceX').val());
         var variationY = Number($('#tweakDistanceY').val());
@@ -280,7 +288,6 @@ var draw = {
           randomizePoint(pointsIndices[i] * 2 + 1, variationY);
         }
       },
-      effect: function() {},
       extend: function() {
         for (var i = 0; i < 6; i++) {
           points.push(draw.random() * draw.size);
@@ -301,7 +308,7 @@ var draw = {
     };
   },
 
-  collection: function(shapes, active, times, translate, scale, angle) {
+  collection: function(shapes, active, times, translate, scale, angle, frozen) {
     var draw = this;
     var activeBox = [active];
     var timesBox = [times];
@@ -314,7 +321,7 @@ var draw = {
         shapes.forEach(function (s) { newShapes.push(s.clone()); });
         return draw.collection(
             newShapes, activeBox[0], timesBox[0], translateBox[0].slice(),
-            scaleBox[0], angleBox[0]);
+            scaleBox[0], angleBox[0], frozen);
       },
       toString: function(output) {
         output.push('draw.collection([');
@@ -325,11 +332,13 @@ var draw = {
             ', [' + translateBox[0][0] + ', ' + translateBox[0][1] + ']');
         output.push(', ' + scaleBox[0]);
         output.push(', ' + angleBox[0]);
+        output.push(', ' + frozen);
         output.push(')');
       },
       add: function() {
         shapes.push(
-            draw.collection([draw.randomBezier()], 0, 1, [0, 0], 1, 0.0));
+            draw.collection(
+                [draw.randomBezier()], 0, 1, [0, 0], 1, 0.0, false));
         activeBox[0] = shapes.length - 1;
       },
       rm: function() {
@@ -342,7 +351,7 @@ var draw = {
         shapes[activeBox[0]].active();
       },
       group: function() {
-        shapes[0] = draw.collection(shapes.slice(), 0, 1, [0, 0], 1, 0.0);
+        shapes[0] = draw.collection(shapes.slice(), 0, 1, [0, 0], 1, 0.0, true);
         shapes.length = 1
         activeBox[0] = 0;
       },
@@ -350,28 +359,33 @@ var draw = {
         shapes[activeBox[0]].tweak();
       },
       move: function() {
+        if (!frozen && shapes[activeBox[0]].move != null) {
+          shapes[activeBox[0]].move();
+          return;
+        }
         var translateVariationX = Number($('#moveTranslateDistanceX').val());
         var translateVariationY = Number($('#moveTranslateDistanceY').val());
         translateBox[0][0] += draw.size
             * (-translateVariationX + 2 * translateVariationX * draw.random());
         translateBox[0][1] += draw.size
             * (-translateVariationY + 2 * translateVariationY * draw.random());
+
+        var moveScaleVariation = Number($('#moveScale').val());
+        scaleBox[0] +=
+            -moveScaleVariation + 2 * moveScaleVariation * draw.random();
+
+        var moveAngleVariation = Number($('#moveAngle').val());
+        angleBox[0] +=
+            -moveAngleVariation + 2 * moveAngleVariation * draw.random();
+
       },
       effect: function() {
-        var choice = draw.random();
-        if (choice < 0.25) {
-          // Adjust repetitions.
-          timesBox[0] =
-              Math.max(1, timesBox[0] - 5 + Math.floor(draw.random() * 10));
-        } else if (choice < 0.5) {
-          // Adjust scale.
-          scaleBox[0] += -0.5 + Math.floor(draw.random());
-          scaleBox[0] = Math.max(0.1, Math.min(1.0, scaleBox[0]));
-        } else if (choice < 0.75) {
-          angleBox[0] += -0.5 + Math.floor(draw.random());
-        } else {
+        if (!frozen && shapes[activeBox[0]].effect != null) {
           shapes[activeBox[0]].effect();
+          return;
         }
+        timesBox[0] =
+            Math.max(1, timesBox[0] - 5 + Math.floor(draw.random() * 10));
       },
       extend: function() {
         shapes[activeBox[0]].extend();
@@ -382,7 +396,11 @@ var draw = {
         canvas.lineWidth = 5;
         for (var times = 0; times < timesBox[0]; times++) {
           canvas.translate(translateBox[0][0], translateBox[0][1]);
+
+          canvas.translate(draw.size / 2, draw.size / 2);
           canvas.rotate(angleBox[0]);
+          canvas.translate(-draw.size / 2, -draw.size / 2);
+
           canvas.scale(scaleBox[0], scaleBox[0]);
           for (var i = 0; i < shapes.length; i++) {
             shapes[i].draw(canvas, active && i == activeBox[0]);
