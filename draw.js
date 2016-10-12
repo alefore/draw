@@ -83,7 +83,7 @@ var draw = {
     for (var i = 0; i < draw.count; i++) {
       var image = this.image.clone();
       operation.handler(draw, image);
-      draw.createCanvas(200, image);
+      draw.createCanvas(250, image);
     }
   },
 
