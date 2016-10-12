@@ -9,7 +9,7 @@ var draw = {
     this.image = this.collection([], 0, 1, [0, 0], 1, 0);
     this.createDefaultCanvas();
 
-    var container = $('<p>Tools: </p>');
+    var container = $('<p>');
     $('#operations').append(container);
 
     var draw = this;
