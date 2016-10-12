@@ -16,13 +16,8 @@ var draw = {
     this.operations.forEach(
       function (o) { draw.addOperation(draw, container, o); });
 
-    var link = document.createElement('a');
-    link.appendChild(document.createTextNode('back'));
-    link.setAttribute('href', '#');
-
     var this_capture = this;
-    link.addEventListener(
-        'click',
+    this.createToolLink(container, 'back', '',
         function () {
           if (this_capture.history.length == 0) { return; }
           this_capture.image = this_capture.history.pop();
@@ -30,7 +25,6 @@ var draw = {
           this_capture.createDefaultCanvas();
         });
 
-    container.append(link);
     $('a.operation').first().click();
   },
 
@@ -38,6 +32,21 @@ var draw = {
   random: function() {
     var x = Math.sin(this.randomSeed++) * 10000;
     return x - Math.floor(x);
+  },
+
+  createToolLink: function(container, text, description, handler) {
+    var link = $('<a>')
+        .append(document.createTextNode(text))
+        .attr('href', '#')
+        .attr('title', description)
+        .attr('class', 'operation')
+        .on('click',
+            function() {
+              $('a.operation').toggleClass('active', false);
+              link.toggleClass('active');
+              handler();
+            });
+    container.append(link).append(' ');
   },
 
   addOperation: function(draw, container, operation) {
@@ -54,25 +63,14 @@ var draw = {
       $('#operations').append(settings);
     }
 
-    var link = $('<a>')
-        .append(document.createTextNode(operation.text))
-        .attr('href', '#')
-        .attr('title', operation.description)
-        .attr('class', 'operation')
-        .on('click',
-            function () {
-              draw.runOperation(draw, link, settings, operation);
-            });
-
-    container.append(link).append(' ');
-
+    this.createToolLink(container, operation.text, operation.description,
+        function (link) {
+          draw.runOperation(draw, settings, operation);
+        });
   },
 
-  runOperation: function(draw, link, settings, operation) {
+  runOperation: function(draw, settings, operation) {
     console.log('Running operation: ' + operation.text);
-
-    $('a.operation').toggleClass('active', false);
-    link.toggleClass('active');
 
     $('div.operationSettings').hide();
     if (settings != null) {
