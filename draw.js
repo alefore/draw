@@ -6,7 +6,7 @@ var draw = {
   view: null,
 
   start: function () {
-    this.image = this.collection([], 0, 1, [0, 0], 1, 0);
+    this.image = this.family({collections: [], active: 0});
     this.createDefaultCanvas();
 
     var container = $('<p>');
@@ -90,11 +90,19 @@ var draw = {
     }
   },
 
-  createSetting: function(container, data, element) {
-    var span = $('<span>')
-        .attr('class', 'setting');
+  createSetting: function(container, data, element, checkbox) {
+    var span = $('<span>').attr('class', 'setting');
+    var nameTarget = span;
+    if (data.checkbox != null) {
+      nameTarget = $('<label>')
+          .append($('<input type=checkbox>')
+              .attr('id', data.id + 'checkbox')
+              .prop('checked', true)
+              .click(function() { $('a.operation.active').click(); }));
+      span.append(nameTarget);
+    }
     if (data.name != null) {
-      span.append(data.name + ': ');
+      nameTarget.append(data.name + ': ');
     }
     span.append(element);
     if (data.description != null) {
@@ -105,7 +113,8 @@ var draw = {
 
   settingsHtml: {
     number: function(draw, container, data) {
-      var element = $('<input type=number>').attr('id', data.id);
+      var element = $('<input type=number>')
+          .attr('id', data.id);
       if (data.step != null) {
         element.attr('step', data.step);
       }
@@ -123,27 +132,39 @@ var draw = {
                 .attr('value', o.id)
                 .append(o.text));
           });
+      element.change(function() { $('a.operation.active').click(); });
       draw.createSetting(container, data, element);
     },
   },
 
   operations: [
       { text: 'add',
-        description: 'Adds a new segment.',
+        description: 'Adds a new segment or collection.',
+        settings: [
+            { type: 'selector',
+              id: 'addType',
+              options: [
+                  { id: 'segment', text: 'Segment' },
+                  { id: 'collection', text: 'Collection' }]}],
         handler: function(draw, image) {
-          image.add();
-        } },
+          image.add($('#addType option:selected').val());
+        }},
       { text: 'rm',
         description: 'Removes the active segment.',
         handler: function(draw, image) {
           image.rm();
         } },
       { text: 'active',
-        description: 'Toggles the active segment (affected by other commands).',
+        description: 'Toggles the active segment or collection.',
+        settings: [
+            { type: 'selector',
+              id: 'activeType',
+              options: [
+                  { id: 'segment', text: 'Segment' },
+                  { id: 'collection', text: 'Collection' }]}],
         handler: function(draw, image) {
-          image.active();
-        } },
-      { text: 'points',
+          image.active($('#activeType option:selected').val()); } },
+      { text: 'tweak',
         description:
             'Moves points in the active segment by a random distance.'
             + ' This includes both visible points as well as the control '
@@ -152,11 +173,13 @@ var draw = {
             { type: 'number',
               name: 'Distance X',
               id: 'tweakDistanceX',
+              checkbox: true,
               initialValue: 0.1,
               step: 0.02 },
             { type: 'number',
               name: 'Distance Y',
               id: 'tweakDistanceY',
+              checkbox: true,
               initialValue: 0.1,
               step: 0.02 },
             { type: 'selector',
@@ -166,41 +189,49 @@ var draw = {
                   { id: 'control', text: 'Control' },
                   { id: 'path', text: 'Path' }]},
             { type: 'selector',
+              name: 'Points',
               id: 'tweakPoints',
               options: [
-                  { id: 'one', text: 'Only one point' },
-                  { id: 'all', text: 'All points' }]}],
+                  { id: 'one', text: 'One' },
+                  { id: 'all', text: 'All' }]}],
         handler: function(draw, image) { image.tweak(); } },
-      { text: 'move',
+      { text: 'transform',
         description: '',
         settings: [
+            {type: 'selector',
+             name: 'Target',
+             id: 'transformTarget',
+             options: [
+                 {id: 'all', text: 'All'},
+                 {id: 'loop', text: 'Loop'}]},
             { type: 'number',
               name: 'Distance X',
               id: 'moveTranslateDistanceX',
+              checkbox: true,
               initialValue: 0.1,
               step: 0.02 },
             { type: 'number',
               name: 'Distance Y',
               id: 'moveTranslateDistanceY',
+              checkbox: true,
               initialValue: 0.1,
               step: 0.02 },
             { type: 'number',
               name: 'Scale',
               id: 'moveScale',
+              checkbox: true,
               initialValue: 0.1,
               step: 0.02 },
             { type: 'number',
               name: 'Angle',
               id: 'moveAngle',
+              checkbox: true,
               initialValue: 0.1,
               step: 0.02 }],
-        handler: function(draw, image) { image.move(); } },
+        handler: function(draw, image) { image.transform(); } },
       { text: 'effect',
         description: '',
         handler: function(draw, image) { image.effect(); } },
-      { text: 'extend',
-        description: 'Extends one of the segments in the figure.',
-        handler: function(draw, image) { image.extend(); } },
       { text: 'group',
         description: '',
         handler: function(draw, image) { image.group(); } },
@@ -230,45 +261,141 @@ var draw = {
     $('#boxes').append(canvas);
   },
 
-  randomBezier: function() {
-    var points = [];
-    for (var i = 0; i < 2; i++) {
-      points.push(this.random() * this.size);
-    }
-    var output = this.bezier(points);
-    output.extend();
-    return output;
+  randomNewPoint: function(points) {
+    points.push([this.random() * this.size, this.random() * this.size]);
+    return points.length - 1;
   },
 
-  bezier: function(points) {
+  randomPoint: function(points) {
+    if (points.length == 0 || this.random() < 0.8) {
+      return this.randomNewPoint(points);
+    }
+    return Math.floor(this.random() * points.length);
+  },
+
+
+  bezier: function(data) {
+    var draw = this;
+    return {
+      tweak: function() {
+      },
+    };
+  },
+
+  family: function(data) {
+    console.log('Create family: ' + JSON.stringify(data));
     var draw = this;
     return {
       clone: function() {
-        return draw.bezier(points.slice());
+        var newCollections = [];
+        data.collections.forEach(
+            function (c) { newCollections.push(c.clone()); });
+        return draw.family({collections: newCollections, active: data.active});
       },
       toString: function(output) {
-        output.push('draw.bezier([');
-        points.forEach(function (d) { output.push(Math.floor(d) + ', '); });
-        output.push('])');
+        output.push('draw.family({collections: [');
+        data.collections.forEach(function (c) {
+          c.toString(output);
+          output.push(', ');
+        });
+        output.push('], active: ' + data.active);
+        output.push('})');
       },
-      active: function() {},
+      add: function(addType) {
+        if (data.collections.length == 0 || addType == 'collection') {
+          data.collections.push(draw.collection({
+            shapes: [],
+            active: 0,
+            loop: {times: 1, transform: draw.defaultTransform()},
+            transform: draw.defaultTransform(),
+            frozen: false,
+            points: {path: [], control: []}}));
+          data.active = data.collections.length - 1;
+        }
+        data.collections[data.active].add();
+      },
+      rm: function() {
+        data.collections[data.active].rm();
+      },
+      active: function(addType) {
+        if (addType == 'segment') {
+          data.collections[data.active].active();
+          return;
+        }
+        data.active = Math.floor(draw.random() * data.collections.length);
+      },
       tweak: function() {
+        data.collections[data.active].tweak();
+      },
+      transform: function() {
+        data.collections[data.active].transform();
+      },
+      effect: function() {
+        data.collections[data.active].effect();
+      },
+      draw: function(canvas, active) {
+        for (var i = 0; i < data.collections.length; i++) {
+          data.collections[i].draw(canvas, i == data.active);
+        }
+      },
+    };
+  },
+
+  defaultTransform: function() {
+    return {translate: [0, 0], scale: 1.0, angle: 0};
+  },
+
+  getSettingsNumberWithCheckbox: function(id) {
+    return $('#' + id + 'checkbox').prop('checked')
+        ? Number($('#' + id).val()) : 0;
+  },
+
+  collection: function(data) {
+    console.log('Create collection: ' + JSON.stringify(data));
+    var draw = this;
+    return {
+      clone: function() {
+        return draw.collection($.extend(true, {}, data));
+      },
+      toString: function(output) {
+        output.push('draw.collection(');
+        output.push(JSON.stringify(data));
+        output.push(')');
+      },
+      add: function() {
+        data.shapes.push({
+          pathStart: draw.randomPoint(data.points.path),
+          controlStart: draw.randomNewPoint(data.points.control),
+          controlEnd: draw.randomNewPoint(data.points.control),
+          pathEnd: draw.randomPoint(data.points.path)
+        });
+        data.active = data.shapes.length - 1;
+      },
+      rm: function() {
+        data.shapes.splice(data.active, 1);
+        data.active = data.shapes.length - 1;
+      },
+      active: function() {
+        data.active = Math.floor(draw.random() * data.shapes.length);
+      },
+      tweak: function() {
+        // We will push tuples of the form [a, b], where a is either 'path' or
+        // 'points', depending on which type of point we're modifying, and b is
+        // the index into the list.
         var pointsIndices = [];
+
+        var shape = data.shapes[data.active];
 
         if ($('#tweakSelectPoints').val() != 'control') {
           console.log('Adding path points');
-          pointsIndices.push(0);
-          for (var i = 1; i < points.length / 2; i += 3) {
-            pointsIndices.push(i + 2);
-          }
+          pointsIndices.push(['path', shape.pathStart]);
+          pointsIndices.push(['path', shape.pathEnd]);
         }
 
         if ($('#tweakSelectPoints').val() != 'path') {
           console.log('Adding control points');
-          for (var i = 1; i < points.length / 2; i += 3) {
-            pointsIndices.push(i);
-            pointsIndices.push(i + 1);
-          }
+          pointsIndices.push(['control', shape.controlStart]);
+          pointsIndices.push(['control', shape.controlEnd]);
         }
 
         if ($('#tweakPoints').val() != 'all') {
@@ -276,134 +403,89 @@ var draw = {
               [pointsIndices[Math.floor(draw.random() * pointsIndices.length)]];
         }
 
-        var randomizePoint = function(index, variation) {
+        var randomizePoint = function(entry, dimension, variation) {
           var delta = draw.size * (-variation + 2 * variation * draw.random());
-          points[index] += delta;
+          data.points[entry[0]][entry[1]][dimension] += delta;
         }
-        var variationX = Number($('#tweakDistanceX').val());
-        var variationY = Number($('#tweakDistanceY').val());
+        var variationX = draw.getSettingsNumberWithCheckbox('tweakDistanceX');
+        var variationY = draw.getSettingsNumberWithCheckbox('tweakDistanceY');
         console.log('Options: ' + pointsIndices.length)
         for (var i = 0; i < pointsIndices.length; i++) {
-          randomizePoint(pointsIndices[i] * 2, variationX);
-          randomizePoint(pointsIndices[i] * 2 + 1, variationY);
+          randomizePoint(pointsIndices[i], 0, variationX);
+          randomizePoint(pointsIndices[i], 1, variationY);
         }
       },
-      extend: function() {
-        for (var i = 0; i < 6; i++) {
-          points.push(draw.random() * draw.size);
-        }
-      },
-      draw: function(canvas, active) {
-        canvas.strokeStyle = active ? "#ff0000" : "#ffffff";
-        canvas.beginPath();
-        canvas.moveTo(points[0], points[1]);
-        for (var i = 2; i < points.length; i += 6) {
-          canvas.bezierCurveTo(
-              points[i + 0], points[i + 1],
-              points[i + 2], points[i + 3],
-              points[i + 4], points[i + 5]);
-        }
-        canvas.stroke();
-      },
-    };
-  },
-
-  collection: function(shapes, active, times, translate, scale, angle, frozen) {
-    var draw = this;
-    var activeBox = [active];
-    var timesBox = [times];
-    var translateBox = [translate];
-    var scaleBox = [scale];
-    var angleBox = [angle];
-    return {
-      clone: function() {
-        var newShapes = [];
-        shapes.forEach(function (s) { newShapes.push(s.clone()); });
-        return draw.collection(
-            newShapes, activeBox[0], timesBox[0], translateBox[0].slice(),
-            scaleBox[0], angleBox[0], frozen);
-      },
-      toString: function(output) {
-        output.push('draw.collection([');
-        shapes.forEach(function (s) { s.toString(output); output.push(', '); });
-        output.push('], ' + activeBox[0]);
-        output.push(', ' + timesBox[0]);
-        output.push(
-            ', [' + translateBox[0][0] + ', ' + translateBox[0][1] + ']');
-        output.push(', ' + scaleBox[0]);
-        output.push(', ' + angleBox[0]);
-        output.push(', ' + frozen);
-        output.push(')');
-      },
-      add: function() {
-        shapes.push(
-            draw.collection(
-                [draw.randomBezier()], 0, 1, [0, 0], 1, 0.0, false));
-        activeBox[0] = shapes.length - 1;
-      },
-      rm: function() {
-        shapes.splice(activeBox[0], 1);
-        activeBox[0] = shapes.length - 1;
-      },
-      active: function() {
-        // Switch the active shape.
-        activeBox[0] = Math.floor(draw.random() * shapes.length);
-        shapes[activeBox[0]].active();
-      },
-      group: function() {
-        shapes[0] = draw.collection(shapes.slice(), 0, 1, [0, 0], 1, 0.0, true);
-        shapes.length = 1
-        activeBox[0] = 0;
-      },
-      tweak: function() {
-        shapes[activeBox[0]].tweak();
-      },
-      move: function() {
-        if (!frozen && shapes[activeBox[0]].move != null) {
-          shapes[activeBox[0]].move();
+      transform: function() {
+        if (!data.frozen && data.shapes[data.active].transform != null) {
+          data.shapes[data.active].transform();
           return;
         }
-        var translateVariationX = Number($('#moveTranslateDistanceX').val());
-        var translateVariationY = Number($('#moveTranslateDistanceY').val());
-        translateBox[0][0] += draw.size
+
+        var target = $('#transformTarget').val() == 'all'
+            ? data.transform : data.loop.transform;
+
+        var translateVariationX =
+            draw.getSettingsNumberWithCheckbox('moveTranslateDistanceX');
+        var translateVariationY =
+            draw.getSettingsNumberWithCheckbox('moveTranslateDistanceY');
+        target.translate[0] += draw.size
             * (-translateVariationX + 2 * translateVariationX * draw.random());
-        translateBox[0][1] += draw.size
+        target.translate[1] += draw.size
             * (-translateVariationY + 2 * translateVariationY * draw.random());
 
-        var moveScaleVariation = Number($('#moveScale').val());
-        scaleBox[0] +=
+        var moveScaleVariation =
+            draw.getSettingsNumberWithCheckbox('moveScale');
+        target.scale +=
             -moveScaleVariation + 2 * moveScaleVariation * draw.random();
 
-        var moveAngleVariation = Number($('#moveAngle').val());
-        angleBox[0] +=
+        var moveAngleVariation =
+            draw.getSettingsNumberWithCheckbox('moveAngle');
+        target.angle +=
             -moveAngleVariation + 2 * moveAngleVariation * draw.random();
 
       },
       effect: function() {
-        if (!frozen && shapes[activeBox[0]].effect != null) {
-          shapes[activeBox[0]].effect();
+        if (!data.frozen && data.shapes[data.active].effect != null) {
+          data.shapes[data.active].effect();
           return;
         }
-        timesBox[0] =
-            Math.max(1, timesBox[0] - 5 + Math.floor(draw.random() * 10));
-      },
-      extend: function() {
-        shapes[activeBox[0]].extend();
+        data.loop.times =
+            Math.max(1, data.loop.times - 5 + Math.floor(draw.random() * 10));
       },
       draw: function(canvas, active) {
         canvas.save();
         canvas.lineJoin = "round";
         canvas.lineWidth = 5;
-        for (var times = 0; times < timesBox[0]; times++) {
-          canvas.translate(translateBox[0][0], translateBox[0][1]);
+        for (var times = 0; times < data.loop.times; times++) {
+          var transform = times == 0 ? data.transform : data.loop.transform;
+          canvas.translate(transform.translate[0], transform.translate[1]);
 
           canvas.translate(draw.size / 2, draw.size / 2);
-          canvas.rotate(angleBox[0]);
+          canvas.rotate(transform.angle);
           canvas.translate(-draw.size / 2, -draw.size / 2);
 
-          canvas.scale(scaleBox[0], scaleBox[0]);
-          for (var i = 0; i < shapes.length; i++) {
-            shapes[i].draw(canvas, active && i == activeBox[0]);
+          canvas.scale(transform.scale, transform.scale);
+          for (var i = 0; i < data.shapes.length; i++) {
+            var shape = data.shapes[i];
+            if (!active) {
+              canvas.strokeStyle = "#ffffff";
+            } else if (i == data.active) {
+              canvas.strokeStyle = "#ff0000";
+            } else {
+              canvas.strokeStyle = "#ffaaaa";
+            }
+            canvas.beginPath();
+            canvas.moveTo(
+                data.points.path[shape.pathStart][0],
+                data.points.path[shape.pathStart][1]);
+            canvas.bezierCurveTo(
+                data.points.control[shape.controlStart][0],
+                data.points.control[shape.controlStart][1],
+                data.points.control[shape.controlEnd][0],
+                data.points.control[shape.controlEnd][1],
+                data.points.path[shape.pathEnd][0],
+                data.points.path[shape.pathEnd][1]);
+            canvas.stroke();
           }
         }
         canvas.restore();
@@ -412,8 +494,9 @@ var draw = {
   },
 
   randomImage: function() {
-    var output = this.collection([], 0, 1, [0, 0], 1, 0);
-    output.add();
+    var output = this.family({collections: [], active: 0});
+    output.add('collection');
+    output.add('segment');
     return output;
   },
 
